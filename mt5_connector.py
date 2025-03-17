@@ -3,7 +3,6 @@ import time
 import logging
 import threading
 import random
-import numpy as np
 from datetime import datetime, timedelta
 
 # Configure logging
@@ -199,13 +198,16 @@ class MT5Connector:
         # Generate random volume
         volume = int(random.random() * 500) + 100
         
+        # Add a 6-hour offset to match the user's local time
+        current_time = datetime.now() + timedelta(hours=6)
+        
         return {
             'open': open_price,
             'high': high_price,
             'low': low_price,
             'close': close_price,
             'tick_volume': volume,
-            'time': datetime.now().timestamp()
+            'time': current_time.timestamp()
         }
     
     def _recording_worker(self, symbol, timeframe):
@@ -251,9 +253,10 @@ class MT5Connector:
                     if self.data_manager:
                         self.data_manager.save_candle(symbol, timeframe, candle_data)
                     
-                    # Update the last candle time
+                    # Update the last candle time and log with adjusted time
                     last_candle_time = current_time
-                    logger.debug(f"Recorded new candle: {symbol} {timeframe} at {candle_time}")
+                    adjusted_candle_time = candle_time.strftime('%Y-%m-%d %H:%M:%S')
+                    logger.debug(f"Recorded new candle: {symbol} {timeframe} at {adjusted_candle_time}")
                 
                 # Sleep for a short time before checking again
                 time.sleep(2)
