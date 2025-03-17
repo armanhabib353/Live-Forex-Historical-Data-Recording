@@ -53,9 +53,9 @@ class MT5Connector:
             'MN1': TIMEFRAME_MN1
         }
         
-        # Base prices for demo symbols
+        # Base prices for demo symbols (updated to match current market values)
         self.base_prices = {
-            'EURUSD': 1.0933,
+            'EURUSD': 1.0810,  # Updated to match real-time EURUSD value
             'GBPUSD': 1.2672,
             'USDJPY': 145.23,
             'AUDUSD': 0.6584,
@@ -176,27 +176,61 @@ class MT5Connector:
     
     def _generate_candle(self, symbol, prev_close=None):
         """Generate a simulated candle for demo purposes"""
-        base_price = self.base_prices.get(symbol, 1.0)
+        # Use actual EURUSD market values for more realistic simulation
+        if symbol == 'EURUSD':
+            # Real EURUSD prices typically around 1.08 range recently
+            actual_price = 1.0810
+            
+            # If we have a previous close, use it for more consistent price movement
+            if prev_close is not None:
+                base_price = prev_close
+                
+                # More controlled movement to create a realistic pattern
+                # Bias slightly toward mean reversion around 1.0810
+                if base_price > 1.0830:
+                    # Higher probability of moving down
+                    bias = -0.00005
+                elif base_price < 1.0790:
+                    # Higher probability of moving up
+                    bias = 0.00005
+                else:
+                    # Random movement near the center
+                    bias = 0
+                
+                # Smaller, more realistic pip movements for forex
+                price_movement = bias + (random.random() - 0.5) * 0.0002
+                
+                # Calculate new prices with tighter ranges
+                open_price = round(base_price, 5)
+                close_price = round(base_price + price_movement, 5)
+                
+                # Forex high/low typically extend 2-5 pips from open/close
+                pip_range = random.uniform(0.00005, 0.00015)
+                high_price = round(max(open_price, close_price) + pip_range, 5)
+                low_price = round(min(open_price, close_price) - pip_range, 5)
+            else:
+                # Initial price if no previous close
+                open_price = round(actual_price + (random.random() - 0.5) * 0.0005, 5)
+                close_price = round(open_price + (random.random() - 0.5) * 0.0001, 5)
+                high_price = round(max(open_price, close_price) + random.random() * 0.0001, 5)
+                low_price = round(min(open_price, close_price) - random.random() * 0.0001, 5)
+        else:
+            # Default behavior for other symbols
+            base_price = self.base_prices.get(symbol, 1.0)
+            
+            if prev_close is not None:
+                base_price = prev_close
+                
+            price_movement = (random.random() - 0.5) * 0.0005 * base_price
+            open_price = round(base_price, 5)
+            close_price = round(base_price + price_movement, 5)
+            high_price = round(max(open_price, close_price) + random.random() * 0.0001 * base_price, 5)
+            low_price = round(min(open_price, close_price) - random.random() * 0.0001 * base_price, 5)
         
-        # If we have a previous close, use it as the base
-        if prev_close is not None:
-            base_price = prev_close
-        
-        # Generate random price movement
-        price_movement = (random.random() - 0.5) * 0.002 * base_price
-        
-        # Calculate open price
-        open_price = round(base_price + (random.random() - 0.5) * 0.0005 * base_price, 5)
-        
-        # Calculate close price
-        close_price = round(open_price + price_movement, 5)
-        
-        # Determine high and low with some randomness
-        high_price = round(max(open_price, close_price) + random.random() * 0.0003 * base_price, 5)
-        low_price = round(min(open_price, close_price) - random.random() * 0.0003 * base_price, 5)
-        
-        # Generate random volume
-        volume = int(random.random() * 500) + 100
+        # Generate realistic volume (higher on significant moves)
+        price_change_pct = abs(close_price - open_price) / open_price
+        volume_base = 100 + int(price_change_pct * 100000)  # Higher volume on bigger moves
+        volume = int(volume_base * (0.5 + random.random()))
         
         # Add a 6-hour offset to match the user's local time
         current_time = datetime.now() + timedelta(hours=6)
